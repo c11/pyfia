@@ -52,6 +52,24 @@ from .estimators import (
 
 __version__ = "1.3.0"
 
+# SQL query builder functions - parallel to estimators
+from .sql import (
+    area_sql,
+    area_change_sql,
+    biomass_sql,
+    carbon_sql,
+    carbon_flux_sql,
+    carbon_pool_sql,
+    growth_sql,
+    mortality_sql,
+    panel_sql,
+    removals_sql,
+    site_index_sql,
+    tpa_sql,
+    tree_metrics_sql,
+    volume_sql,
+)
+
 # Only expose user-facing estimator functions
 __all__ = [
     "area",
@@ -67,4 +85,19 @@ __all__ = [
     "tpa",
     "tree_metrics",
     "volume",
+    # SQL query builders
+    "area_sql",
+    "area_change_sql",
+    "biomass_sql",
+    "carbon_sql",
+    "carbon_flux_sql",
+    "carbon_pool_sql",
+    "growth_sql",
+    "mortality_sql",
+    "panel_sql",
+    "removals_sql",
+    "site_index_sql",
+    "tpa_sql",
+    "tree_metrics_sql",
+    "volume_sql",
 ]

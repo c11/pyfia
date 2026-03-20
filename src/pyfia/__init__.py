@@ -51,6 +51,24 @@ from pyfia.downloader import (
     download,
 )
 
+# SQL query builders - parallel to estimators, return SQL strings
+from pyfia.estimation.sql import (
+    area_change_sql,
+    area_sql,
+    biomass_sql,
+    carbon_flux_sql,
+    carbon_pool_sql,
+    carbon_sql,
+    growth_sql,
+    mortality_sql,
+    panel_sql,
+    removals_sql,
+    site_index_sql,
+    tpa_sql,
+    tree_metrics_sql,
+    volume_sql,
+)
+
 # Estimation functions - High-level API
 from pyfia.estimation.estimators.area import area
 from pyfia.estimation.estimators.area_change import area_change
@@ -121,6 +139,21 @@ __all__ = [
     "removals",
     "site_index",
     "tree_metrics",
+    # SQL query builders
+    "area_sql",
+    "area_change_sql",
+    "biomass_sql",
+    "carbon_sql",
+    "carbon_flux_sql",
+    "carbon_pool_sql",
+    "growth_sql",
+    "mortality_sql",
+    "panel_sql",
+    "removals_sql",
+    "site_index_sql",
+    "tpa_sql",
+    "tree_metrics_sql",
+    "volume_sql",
     # Reference table utilities
     "join_forest_type_names",
     "join_species_names",

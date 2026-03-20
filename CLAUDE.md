@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> This file provides guidance to Claude Code when working with this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -40,13 +40,23 @@
 ```bash
 # Setup
 uv venv && source .venv/bin/activate && uv pip install -e .[dev]
+pre-commit install
 
 # Test
-uv run pytest
+uv run pytest                                          # all tests
+uv run pytest tests/unit/test_mortality_estimator.py  # single file
+uv run pytest --cov=pyfia --cov-report=html           # with coverage
+uv run pytest tests/property/test_property_based.py -v # property-based
 
 # Quality
 uv run ruff format && uv run ruff check --fix && uv run mypy src/pyfia/
+uv run pre-commit run --all-files
+
+# Docs
+uv run mkdocs serve
 ```
+
+Tests are organized into `tests/unit/`, `tests/integration/`, `tests/validation/`, `tests/property/`, and `tests/e2e/`. Validation tests compare against EVALIDator results and require real FIA databases.
 
 ## Core Principles for Contributors
 
@@ -63,22 +73,47 @@ uv run ruff format && uv run ruff check --fix && uv run mypy src/pyfia/
 - **YAML schemas are source of truth**: FIA table definitions live in YAML
 - **`mortality()` is the documentation gold standard**: Match its docstring quality
 
-## Project Structure
+## Architecture
 
-```
-pyfia/
-├── src/pyfia/           # Library source code
-│   ├── core/            # Database, backends, and settings
-│   ├── estimation/      # Statistical estimation
-│   ├── filtering/       # Domain filtering
-│   ├── downloader/      # FIA data download from DataMart
-│   ├── evalidator/      # EVALIDator API client for validation
-│   ├── validation.py    # Input validation utilities
-│   ├── utils/           # Reference table helpers
-│   └── constants/       # FIA constants and standard values
-├── tests/               # Test suite
-├── docs/                # Technical documentation
-├── ../business/         # Business docs (outside repo)
-├── examples/            # Example scripts
-└── data/                # Test databases
+### Estimation Flow
+
+All public estimation functions (`area`, `volume`, `tpa`, `mortality`, `growth`, `removals`, `biomass`, `area_change`, `site_index`, `tree_metrics`) follow the same pattern via `BaseEstimator` (Template Method):
+
+1. **Load data** — `FIADataReader` fetches FIA tables (TREE, COND, PLOT, POP_* etc.)
+2. **Filter** — `filtering/` applies `tree_domain` and `area_domain` SQL-like expressions
+3. **Aggregate** — condition-level → plot-level → population totals
+4. **Variance** — `estimation/variance.py` implements Bechtold & Patterson (2005) stratified formula
+5. **Return** — Polars DataFrame with estimates + SE + confidence intervals
+
+GRM-based estimators (`mortality`, `growth`, `removals`) extend `GRMBaseEstimator` instead and use `TREE_GRM_COMPONENT` + `TREE_GRM_MIDPT` tables.
+
+### Key Classes and Files
+
+| File | Role |
+|------|------|
+| `core/fia.py` | `FIA` class — database connection, `clip_by_evalid/state/clip_most_recent()` |
+| `core/data_reader.py` | `FIADataReader` — efficient table loading with WHERE clause pushdown |
+| `core/backends/` | DuckDB (default), SQLite, MotherDuck backends |
+| `estimation/base.py` | `BaseEstimator` ABC + `AggregationResult` dataclass |
+| `estimation/grm_base.py` | `GRMBaseEstimator` for mortality/growth/removals |
+| `estimation/variance.py` | `calculate_domain_total_variance()` — matches EVALIDator within 1–3% |
+| `filtering/parser.py` | Parses domain strings (e.g. `"DIA >= 10.0"`) to Polars expressions |
+| `evalidator/` | HTTP client for EVALIDator API; used in `tests/validation/` |
+
+### Dependencies
+
+- **Polars** — primary dataframe library (use LazyFrame for memory efficiency)
+- **DuckDB** — default backend (10–100x faster than SQLite)
+- **Pydantic v2** — settings only, not for data objects
+- **ConnectorX** — fast database connectivity
+
+### EVALID System
+
+EVALIDs follow `SSYYTT` format (state FIPS + 2-digit year + eval type). States with single-digit FIPS (e.g., AL=1) produce 5-digit EVALIDs. Always `clip_by_state()` or `clip_by_evalid()` before calling an estimator, and match `eval_type` to the function (`EXPVOL` → `volume()`, `EXPALL` → `area()`, `EXPMORT`/`EXPGROW` → `mortality()`/`growth()`).
+
+```python
+with FIA("data/nfi_south.duckdb") as db:
+    db.clip_by_state(37)                   # North Carolina (FIPS 37)
+    db.clip_most_recent(eval_type="VOL")
+    results = volume(db, tree_domain="STATUSCD == 1")
 ```
